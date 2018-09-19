@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	
+	<style>
+      .chat_log{ width: 95%; height: 200px; }
+      .name{ width: 10%; }
+      .message{ width: 70%; }
+      .submit{ width: 10%; }
+
+	  canvas {
+            border: 1px solid black;
+            padding-left: 0;
+            padding-right: 0;
+            margin-left: auto;
+            margin-right: auto;
+            display: block;
+            width: 800px;
+        }
+        
+        #imgrsc {
+            display: none;
+        }
+    </style>
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
+
+	<script>
+//////////////////////////////////// 서버와 통신 ///////////////////////////////////////////////////
+		
+		var socket;
+		var socketId;
+
+		$( function(){
+			socket = io();
+
+			socket.on("assignid",  function(id, array){	// 접속시에 한번 발생하는 메시지
+				socketId = id;				
+				ballArray = array;
+			});
+
+			socket.on("renew", function(array){		// ballArray에 변화가 생겼을때 주고 받는 메시지
+				ballArray = array;
+				
+				draw();		// 데이터가 변하였기때문에 draw
+			});		
+
+			socket.on("disconnect", function(array){
+				ballArray = array;
+				draw();
+			});
+
+			$(window).focusout(function(){
+				leftKeyPressed = false;     // 왼쪽 화살표 키 입력 감지 불값
+				rightKeyPressed = false;
+				upKeyPressed = false;
+				downKeyPressed = false;
+				console.log( "focusout");	
+			});
+		});		 
+		
+
+//////////////////////////////////// 클라이언트 로직 /////////////////////////////////////////////////////
+		
+		var canvas;
+        var ctx;
+		
+		var drawTimerID;
+        var updateTimerID;
+		var leftKeyPressed;     // 왼쪽 화살표 키 입력 감지 불값
+        var rightKeyPressed;
+		var upKeyPressed;
+		var downKeyPressed;		
+		
+		var ballArray = [];
+		
+		function init()
+		{
+			canvas = $("#canvas")[0];
+
+            if ( canvas.getContext ) 
+			{
+                ctx = canvas.getContext('2d');      // draw render 를 하는 도구들
+            } 
+			else 
+			{
+                alert("ERROR : context를 얻어오지 못했습니다.")
+                return;
+            }
+			
+			count = 0;
+			drawTimerID = 0;
+			updateTimerID = 0;
+			leftKeyPressed = false;     // 왼쪽 화살표 키 입력 감지 불값
+        	rightKeyPressed = false;
+			upKeyPressed = false;
+			downKeyPressed = false;
+			
+			document.addEventListener("keydown", KeyDownHandler, false); 	// 이벤트 핸들러에 등록
+            document.addEventListener("keyup", KeyUpHandler, false);
+
+			updateTimerID = setInterval(update, 15);
+			draw();
+		}
+
+		function draw()
+		{			
+			ctx.clearRect( 0, 0, canvas.width, canvas.height );
+
+			for( var i = 0 ; i < ballArray.length ; i ++ )
+			{
+				if( ballArray[i] == null ) continue;
+				var image = new Image();
+				image.src = ballArray[i].imgsrc;
+				ctx.drawImage( image, ballArray[i].x, ballArray[i].y, ballArray[i].width, ballArray[i].height );
+			}
+		}
+
+		function update()
+		{
+			for( var i = 0 ; i < ballArray.length ; i ++ )
+			{
+				if( ballArray[i] == null ) continue;
+				if( ballArray[i].id == socketId )
+				{
+					if( leftKeyPressed ) ballArray[i].x -= 2;
+					if( rightKeyPressed ) ballArray[i].x += 2;
+					if( upKeyPressed ) ballArray[i].y -= 2;
+					if( downKeyPressed ) ballArray[i].y += 2;
+
+					break;
+				}
+			}			
+			socket.emit( "renew", ballArray );
+		}
+
+		function KeyDownHandler(e) 
+		{
+            switch (e.key) {
+
+                case 'ArrowLeft':
+					leftKeyPressed = true;
+                    break;
+                case 'ArrowRight':
+					rightKeyPressed = true;
+                    break;
+				case 'ArrowUp':
+					upKeyPressed = true;
+                    break;
+				case 'ArrowDown':
+					downKeyPressed = true;
+                    break;
+
+                default:
+                    break;
+            }						
+        }
+
+        function KeyUpHandler(e) {
+
+			switch (e.key) {
+
+                case 'ArrowLeft':
+					leftKeyPressed = false;
+                    break;
+                case 'ArrowRight':
+					rightKeyPressed = false;
+                    break;
+				case 'ArrowUp':
+					upKeyPressed = false;
+                    break;
+				case 'ArrowDown':
+					downKeyPressed = false;
+                    break;
+
+                default:
+                    break;
+            }
+        }
+		
+	</script>
+
+</head>
+<body onload="init();">
+
+	<canvas id="canvas" width="800" height="600"></canvas>
+
+	<div id="imgrsc">
+
+		<img id="ball" src="https://i.imgur.com/WGB7J1N.png">
+
+	</div>
+
+</body>
+</html>
